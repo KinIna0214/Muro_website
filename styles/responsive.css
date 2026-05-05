@@ -68,4 +68,11 @@
     .section-title {
         font-size: 2rem;
     }
+
+    .floating-gif {
+        width: 88px;
+        height: 88px;
+        left: 1rem;
+        bottom: 8.5rem;
+    }
 }

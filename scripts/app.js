@@ -12,6 +12,7 @@ const refs = {
     catLabel: document.getElementById("catLabel"),
     subList: document.getElementById("subList"),
     displayArea: document.getElementById("displayArea"),
+    floatingGif: document.getElementById("floatingGif"),
     langSwitch: document.getElementById("langSwitch"),
     langToggle: document.getElementById("langToggle"),
     langMenu: document.getElementById("langMenu"),
@@ -19,6 +20,23 @@ const refs = {
     langZh: document.getElementById("langZh"),
     langEn: document.getElementById("langEn")
 };
+
+function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+}
+
+function bindFloatingGifFallback() {
+    const gifImage = refs.floatingGif.querySelector("img");
+    const fallbackSrc = gifImage.dataset.fallbackSrc;
+
+    gifImage.addEventListener("error", () => {
+        if (gifImage.src === fallbackSrc) {
+            return;
+        }
+
+        gifImage.src = fallbackSrc;
+    }, { once: true });
+}
 
 function updateDocumentLanguage() {
     document.documentElement.lang = state.currentLang === "zh" ? "zh-TW" : "en";
@@ -111,7 +129,68 @@ function setLanguage(lang) {
     setLanguageMenuOpen(false);
 }
 
+function moveFloatingGif(nextLeft, nextTop) {
+    const { width, height } = refs.floatingGif.getBoundingClientRect();
+    const maxLeft = Math.max(0, window.innerWidth - width);
+    const maxTop = Math.max(0, window.innerHeight - height);
+
+    refs.floatingGif.style.left = `${clamp(nextLeft, 0, maxLeft)}px`;
+    refs.floatingGif.style.top = `${clamp(nextTop, 0, maxTop)}px`;
+    refs.floatingGif.style.bottom = "auto";
+}
+
+function keepFloatingGifInViewport() {
+    const rect = refs.floatingGif.getBoundingClientRect();
+    moveFloatingGif(rect.left, rect.top);
+}
+
+function bindFloatingGif() {
+    let dragOffsetX = 0;
+    let dragOffsetY = 0;
+    let isDragging = false;
+
+    refs.floatingGif.addEventListener("dblclick", () => {
+        openCategory(0);
+    });
+
+    refs.floatingGif.addEventListener("pointerdown", event => {
+        isDragging = true;
+        dragOffsetX = event.clientX - refs.floatingGif.getBoundingClientRect().left;
+        dragOffsetY = event.clientY - refs.floatingGif.getBoundingClientRect().top;
+
+        refs.floatingGif.classList.add("dragging");
+        refs.floatingGif.setPointerCapture(event.pointerId);
+    });
+
+    refs.floatingGif.addEventListener("pointermove", event => {
+        if (!isDragging) {
+            return;
+        }
+
+        moveFloatingGif(event.clientX - dragOffsetX, event.clientY - dragOffsetY);
+    });
+
+    const stopDragging = event => {
+        if (!isDragging) {
+            return;
+        }
+
+        isDragging = false;
+        refs.floatingGif.classList.remove("dragging");
+
+        if (refs.floatingGif.hasPointerCapture(event.pointerId)) {
+            refs.floatingGif.releasePointerCapture(event.pointerId);
+        }
+    };
+
+    refs.floatingGif.addEventListener("pointerup", stopDragging);
+    refs.floatingGif.addEventListener("pointercancel", stopDragging);
+    window.addEventListener("resize", keepFloatingGifInViewport);
+}
+
 function bindEvents() {
+    bindFloatingGifFallback();
+    bindFloatingGif();
     refs.langToggle.addEventListener("click", () => {
         setLanguageMenuOpen(refs.langMenu.hidden);
     });
@@ -135,6 +214,7 @@ function init() {
         currentLang: state.currentLang
     });
     openCategory(state.currentCat);
+    keepFloatingGifInViewport();
 }
 
 init();
